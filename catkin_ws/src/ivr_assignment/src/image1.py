@@ -27,20 +27,27 @@ class image_converter:
     self.robot_joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
     self.robot_joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
 
-
     self.robot_joint2Vision_pub = rospy.Publisher("/robot/joints2Vision", Float64, queue_size=10)
     self.robot_joint3Vision_pub = rospy.Publisher("/robot/joints3Vision", Float64, queue_size=10)
     self.robot_joint4Vision_pub = rospy.Publisher("/robot/joints4Vision", Float64, queue_size=10)
 
+    self.robot_prevJoint2Val_pub = rospy.Publisher("/robot/previousJoint2Val", Float64, queue_size=10)
+    self.robot_prevJoint3Val_pub = rospy.Publisher("/robot/previousJoint3Val", Float64, queue_size=10)
+    self.robot_prevJoint4Val_pub = rospy.Publisher("/robot/previousJoint4Val", Float64, queue_size=10)
+
+    self.robot_targetX_pup = rospy.Publisher("/robot/targetX", Float64, queue_size=10)
+    self.robot_targetY_pup = rospy.Publisher("/robot/targetY", Float64, queue_size=10)
+    self.robot_targetZ_pup = rospy.Publisher("/robot/targetZ", Float64, queue_size=10)
+
     # colour_closest in format [Closest colour in YZ, Closest colour in XZ]
     # Used in case we can't see target colour, use the closest objects coordinates instead
     # Initialise to centre points just to clear any unforeseen errors.
-    self.redClosest = np.array([[0,0],[0,0]])
-    self.greenClosest = np.array([[0,0],[0,0]])
-    self.blueClosest = np.array([[0,0],[0,0]])
-    self.YellowClosest = np.array([[0,0],[0,0]])
-    self.sphereClosest = np.array([[0,0],[0,0]])
-    self.cubeClosest = np.array([[0,0],[0,0]])
+    self.redClosest = np.array([[0.1,0.1],[0.1,0.1]])
+    self.greenClosest = np.array([[0.1,0.1],[0.1,0.1]])
+    self.blueClosest = np.array([[0.1,0.1],[0.1,0.1]])
+    self.YellowClosest = np.array([[0.1,0.1],[0.1,0.1]])
+    self.sphereClosest = np.array([[0.1,0.1],[0.1,0.1]])
+    self.cubeClosest = np.array([[0.1,0.1],[0.1,0.1]])
 
     self.joint2=Float64()
     self.joint3=Float64()
@@ -50,8 +57,16 @@ class image_converter:
     self.calcJoint3=Float64()
     self.calcJoint4=Float64()
 
+    self.previousJoint2=Float64()
+    self.previousJoint3=Float64()
+    self.previousJoint4=Float64()
+
     self.pixToMet = None
     self.looped = False
+
+    self.targetX=Float64()
+    self.targetY=Float64()
+    self.targetZ=Float64()
 
     # initialize the bridge between openCV and ROS
     self.bridge = CvBridge()
@@ -101,7 +116,7 @@ class image_converter:
 
     # get pixel to meter ratio only once, do this before any joints have moved.
     if not self.looped:
-      self.pixToMet = self.pixel2Meter(yellowPixCentres[0], redPixCentres[0])
+      self.pixToMet = self.pixel2Meter((yellowPixCentres[0]+yellowPixCentres[1])/2, (bluePixCentres[0]+bluePixCentres[1])/2)
       self.looped = True
 
     # Get 2D object locations in meters on the YZ and the XZ
@@ -123,7 +138,32 @@ class image_converter:
     target3D = self.get3Dim(target2D)
     cube3D = self.get3Dim(cube2D)
 
+    # Debugging images, delete this later!
+    XY = np.ones((800,800,3), np.uint8)
+    XY[800-int(yellow3D[1]/self.pixToMet)][int(yellow3D[0]/self.pixToMet)] = (50,255,255)
+    XY[800-int(red3D[1]/self.pixToMet)][int(red3D[0]/self.pixToMet)] = (50,50,255)
+    XY[800-int(green3D[1]/self.pixToMet)][int(green3D[0]/self.pixToMet)] = (50,255,50)
+    XY[800-int(blue3D[1]/self.pixToMet)][int(blue3D[0]/self.pixToMet)] = (255,50,50)
+    XY[800-int(target3D[1]/self.pixToMet)][int(target3D[0]/self.pixToMet)] = (0,165,255)
 
+    YZ = np.ones((800,800,3), np.uint8)
+    YZ[800-int(yellow3D[2]/self.pixToMet)][int(yellow3D[1]/self.pixToMet)] = (50,255,255)
+    YZ[800-int(red3D[2]/self.pixToMet)][int(red3D[1]/self.pixToMet)] = (50,50,255)
+    YZ[800-int(green3D[2]/self.pixToMet)][int(green3D[1]/self.pixToMet)] = (50,255,50)
+    YZ[800-int(blue3D[2]/self.pixToMet)][int(blue3D[1]/self.pixToMet)] = (255,50,50)
+    YZ[800-int(target3D[2]/self.pixToMet)][int(target3D[1]/self.pixToMet)] = (0,165,255)
+
+    XZ = np.ones((800,800,3), np.uint8)
+    XZ[800-int(yellow3D[2]/self.pixToMet)][int(yellow3D[0]/self.pixToMet)] = (50,255,255)
+    XZ[800-int(red3D[2]/self.pixToMet)][int(red3D[0]/self.pixToMet)] = (50,50,255)
+    XZ[800-int(green3D[2]/self.pixToMet)][int(green3D[0]/self.pixToMet)] = (50,255,50)
+    XZ[800-int(blue3D[2]/self.pixToMet)][int(blue3D[0]/self.pixToMet)] = (255,50,50)
+    XZ[800-int(target3D[2]/self.pixToMet)][int(target3D[0]/self.pixToMet)] = (0,165,255)
+
+
+    xyim = cv2.imshow("XY", XY)
+    yzim = cv2.imshow("YZ", YZ)
+    xzim = cv2.imshow("XZ", XZ)
 
     calcJoints = self.calcJointAngles([yellow3D, blue3D, green3D, red3D])
 
@@ -133,11 +173,26 @@ class image_converter:
 
     self.setClosestPoints(points2D, visibility)
 
+    # Get joint values that we're working on
+    self.previousJoint2 = self.joint2
+    self.previousJoint3 = self.joint3
+    self.previousJoint4 = self.joint4
+
+    targetInBaseFrame = target3D - yellow3D
+    self.targetX = 0.9 * targetInBaseFrame[0]
+    self.targetY = 0.9 * targetInBaseFrame[1]
+    self.targetZ = targetInBaseFrame[2]
+    print("Target: " + str(targetInBaseFrame[0]) + " , " +  str(targetInBaseFrame[1]) + " , " + str(targetInBaseFrame[2]))
+
+    blueBaseFrame = blue3D - yellow3D
+    print("Blue: " + str(blueBaseFrame[0]) + " , " +  str(blueBaseFrame[1]) + " , " + str(blueBaseFrame[2]))
+
     # Update joint angles
     joints = self.jointMovement()
     self.joint2 = joints[0]
     self.joint3 = joints[1]
     self.joint4 = joints[2]
+
     print("Joints:   J2:" + str(np.round(10000 * joints[0]) /10000) + ",  J3:" + str(np.round(10000 * joints[1]) /10000) + ",  J4:" + str(np.round(10000 * joints[2]) /10000))
 
     im1 = cv2.imshow('yzImage', self.cv_image1)
@@ -154,6 +209,16 @@ class image_converter:
       self.robot_joint2Vision_pub.publish(self.calcJoint2)
       self.robot_joint3Vision_pub.publish(self.calcJoint3)
       self.robot_joint4Vision_pub.publish(self.calcJoint4)
+
+      self.robot_prevJoint2Val_pub.publish(self.previousJoint2)
+      self.robot_prevJoint3Val_pub.publish(self.previousJoint3)
+      self.robot_prevJoint4Val_pub.publish(self.previousJoint4)
+
+      self.robot_targetX_pup.publish(self.targetX)
+      self.robot_targetY_pup.publish(self.targetY)
+      self.robot_targetZ_pup.publish(self.targetZ)
+
+
     except CvBridgeError as e:
       print(e)
 
@@ -170,7 +235,7 @@ class image_converter:
     # think it can actually happen while running. If I have time I'll come back to this later
     if(len(cont) == 0):
       print("this really shouldn't happen")
-      return np.array([self.sphereClosest, self.cubeClosest])
+      return np.array([self.sphereClosest / self.pixToMet, self.cubeClosest / self.pixToMet])
 
     # if objects are overlapping in view we just take the centre of both. This skew the results this is a rare
     # occurrence and if it does happen, it's usually for a tiny amount of time.
@@ -193,7 +258,7 @@ class image_converter:
     elif len(cont) > 2:
       print("more than two contours")
       print("!!!")
-      return np.array([self.sphereClosest[index], self.cubeClosest[index]])
+      return np.array([self.sphereClosest[index] / self.pixToMet, self.cubeClosest[index] / self.pixToMet])
 
     # get the moments of the contours
     targM = cv2.moments(targetContours)
@@ -267,7 +332,7 @@ class image_converter:
 
     # if the colour doesn't show in the plane, take the colour that was closest to it before it disappeared
     if not seen[0]:
-      yz = closest[0]
+      yz = closest[0] / self.pixToMet
     else:
       M = cv2.moments(mask[0])
       if M['m00'] == 0:
@@ -279,7 +344,7 @@ class image_converter:
     # Find mask pixel centre in xz plane
     # if the colour doesn't show in the plane, take the colour that was closest to it before it disappeared
     if not seen[1]:
-      xz = closest[1]
+      xz = closest[1] / self.pixToMet
     else:
       M = cv2.moments(mask[1])
       if M['m00'] == 0:
@@ -312,39 +377,27 @@ class image_converter:
     blue = baseFrame - data[1]
     green = baseFrame - data[2]
     red = baseFrame - data[3]
+
+    yellowToBlue = blue - yellow
+    blueToGreen = green - blue
+    greenToRed = red - green
+
     # J1 rotates around the z axis, so we measure the YZ points
-    j1 = self.zAngle(blue - yellow)
 
-    J1X = np.arctan2(yellow[1] - blue[1], yellow[2] - blue[2])
-    J1Y = np.arctan2(yellow[0] - blue[0], yellow[2] - blue[2])
-    J1Z = np.arctan2(yellow[0] - blue[0], yellow[1] - blue[1])
+    j1 = np.arccos(yellowToBlue[0] / (np.sqrt(yellowToBlue[0] **2 + yellowToBlue[1]**2))) - 1
+    j1 = 0
 
-    j1 = np.arctan2(yellow[0] - blue[0], yellow[1] - blue[0])
-    # J2 rotates around the X axis
-    #j2 = self.xAngle(green - blue) - j1
+    # Get joint 2s angle by checking its angle in the YZ plane
+    j2 = (np.pi/2 + - np.arccos(blueToGreen[1] / (np.sqrt(blueToGreen[1]**2 + blueToGreen[2]**2))) - j1)
 
-    j2 = - (np.arctan2(blue[1] - green[1], blue[2] - green[2]) - J1X)
-    temp = j2 < 0
-    j2 = np.abs(j2) - 0.1
-    if(temp): j2 = j2 * -1
-    #print("J3 testing: J3 =" + str((np.arctan2(blue[0] - green[0], blue[2] - green[2]))) + ", J1Y: "+ str(J1Y))
-    print("Green Testing: " + str(green) + "  --- j3: " +  str((-1 * np.abs(np.arctan2(blue[0] - green[0], blue[2] - green[2]))) + J1Y));
-    j3 =  (-1 * np.abs(np.arctan2(blue[0] - green[0], blue[2] - green[2]))) + J1Y
-    # was getting j3 to be constantly slightly too big, offset just to make it more accurat e
-    j3 = np.abs(j3) - 0.1
-    # getting a weird bug that makes j3 go nuts when joint 3 is on the left of the base
-    # fixed by getting it to just ignore the issue, act like it's always on the left in the actual calculation but check
-    # to see if it's on the left, if it is then just times the calculated angle by -1
-    if(green[0] > yellow[0]):
-      j3 = -1 * j3
+    # Get joint 3s angle by checking its angle in the XZ plane
+    # we also adjust slightly to improve accuracy
+    j3 = 0.85 * (-np.pi/2 + np.arccos(blueToGreen[0] / (np.sqrt(blueToGreen[0]**2 + blueToGreen[2]**2))) - j1)
 
+    # Get joint 4s angle by checking in the YZ plane, also subtract j2 as the rotation is also applied to j4
+    j4 = -(- np.pi/2 + np.arccos(greenToRed[1] / (np.sqrt(greenToRed[1]**2 + greenToRed[2]**2)))) - j2
 
-    j4 = np.abs((np.arctan2(green[1] - red[1], green[2] - red[2]))) - J1X - j2
-
-
-
-
-    print("calc:     J2:" + str(np.round(1000 * j2) /1000) + ",  J3:" + str(np.round(1000 * j3) /1000) + ",  J4:" + str(np.round(1000 * j4) /1000))
+    #print("calc:     J1:" + str(np.round(1000 * j1) /1000) +",  J2:" + str(np.round(1000 * j2) /1000) + ",  J3:" + str(np.round(1000 * j3) /1000) + ",  J4:" + str(np.round(1000 * j4) /1000))
     return [j2, j3, j4]
 
   def pixel2Meter(self, circle1, circle2):
@@ -385,7 +438,7 @@ class image_converter:
 
     if(visibility[3][0]): self.redClosest[0] = self.getClosestPoint(points, points[3][0], 0)
     if(visibility[3][1]): self.redClosest[1] = self.getClosestPoint(points, points[3][1], 1)
-
+    print("aw beans: " + str(self.redClosest[1]))
     if(visibility[4][0]): self.sphereClosest[0] = self.getClosestPoint(points, points[4][0], 0)
     if(visibility[4][1]): self.sphereClosest[1] = self.getClosestPoint(points, points[4][1], 1)
 
