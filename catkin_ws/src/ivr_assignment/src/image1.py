@@ -39,6 +39,10 @@ class image_converter:
     self.robot_targetY_pup = rospy.Publisher("/robot/targetY", Float64, queue_size=10)
     self.robot_targetZ_pup = rospy.Publisher("/robot/targetZ", Float64, queue_size=10)
 
+    self.robot_redX_pub = rospy.Publisher("/robot/redXVision", Float64, queue_size=10)
+    self.robot_redY_pub = rospy.Publisher("/robot/redYVision", Float64, queue_size=10)
+    self.robot_redZ_pub = rospy.Publisher("/robot/redZVision", Float64, queue_size=10)
+
     # colour_closest in format [Closest colour in YZ, Closest colour in XZ]
     # Used in case we can't see target colour, use the closest objects coordinates instead
     # Initialise to centre points just to clear any unforeseen errors.
@@ -67,6 +71,10 @@ class image_converter:
     self.targetX=Float64()
     self.targetY=Float64()
     self.targetZ=Float64()
+
+    self.redX = Float64()
+    self.redY = Float64()
+    self.redZ = Float64()
 
     # initialize the bridge between openCV and ROS
     self.bridge = CvBridge()
@@ -100,7 +108,7 @@ class image_converter:
     orangeVis = self.canSee(orangeMask)
 
     visibility = [yellowVis, blueVis, greenVis, redVis, orangeVis]
-    print("!: " + str(visibility[0][0]))
+
     redPixCentres = self.get_pixel_centre(redMask, redVis, self.redClosest)
     bluePixCentres = self.get_pixel_centre(blueMask, blueVis, self.blueClosest)
     yellowPixCentres = self.get_pixel_centre(yellowMask, yellowVis, self.YellowClosest)
@@ -184,8 +192,10 @@ class image_converter:
     self.targetZ = targetInBaseFrame[2]
     print("Target: " + str(targetInBaseFrame[0]) + " , " +  str(targetInBaseFrame[1]) + " , " + str(targetInBaseFrame[2]))
 
-    blueBaseFrame = blue3D - yellow3D
-    print("Blue: " + str(blueBaseFrame[0]) + " , " +  str(blueBaseFrame[1]) + " , " + str(blueBaseFrame[2]))
+    RedInBaseFrame = red3D - yellow3D
+    self.redX = RedInBaseFrame[0]
+    self.redY = RedInBaseFrame[1]
+    self.redZ = RedInBaseFrame[2]
 
     # Update joint angles
     joints = self.jointMovement()
@@ -217,6 +227,10 @@ class image_converter:
       self.robot_targetX_pup.publish(self.targetX)
       self.robot_targetY_pup.publish(self.targetY)
       self.robot_targetZ_pup.publish(self.targetZ)
+
+      self.robot_redX_pub.publish(self.redX)
+      self.robot_redY_pub.publish(self.redY)
+      self.robot_redZ_pub.publish(self.redZ)
 
 
     except CvBridgeError as e:
@@ -358,8 +372,8 @@ class image_converter:
   def jointMovement(self):
     pi = math.pi
     t = rospy.get_time() - self.initial_time
-    j2 = (pi/3.0) * math.sin((pi/15.0) * t)
-    j3 = (pi/3.0) * math.sin((pi/18.0) * t)
+    j2 = (pi/2.0) * math.sin((pi/15.0) * t)
+    j3 = (pi/2.0) * math.sin((pi/18.0) * t)
     j4 = (pi/3.0) * math.sin((pi/20.0) * t)
     return [j2, j3, j4]
 
