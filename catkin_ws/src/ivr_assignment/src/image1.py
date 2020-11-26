@@ -193,6 +193,7 @@ class image_converter:
     print("Target: " + str(targetInBaseFrame[0]) + " , " +  str(targetInBaseFrame[1]) + " , " + str(targetInBaseFrame[2]))
 
     RedInBaseFrame = red3D - yellow3D
+    RedInBaseFrame = self.clampMagnitude(RedInBaseFrame, 9)
     self.redX = RedInBaseFrame[0]
     self.redY = RedInBaseFrame[1]
     self.redZ = RedInBaseFrame[2]
@@ -235,6 +236,12 @@ class image_converter:
 
     except CvBridgeError as e:
       print(e)
+
+  def clampMagnitude(self, v, mag):
+    x, y, z = v
+    n = np.sqrt(x**2 + y**2 + z**2)
+    f = min(n, mag) / n
+    return np.array([x * f, y * f, z * f])
 
   def orangeObjectsPixelPos(self, image, index):
     targetPixelPos = np.array([-1, -1])
