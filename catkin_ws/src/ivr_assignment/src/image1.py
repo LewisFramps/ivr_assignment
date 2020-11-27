@@ -71,10 +71,10 @@ class image_converter:
         self.joint3 = Float64()
         self.joint4 = Float64()
 
-        self.joint1 = 0.0
-        self.joint2 = 0.0
-        self.joint3 = 0.0
-        self.joint4 = 0.0
+        self.joint1Angle = 0.0
+        self.joint2Angle = 0.0
+        self.joint3Angle = 0.0
+        self.joint4Angle = 0.0
 
         self.calcJoint1 = Float64()
         self.calcJoint2 = Float64()
@@ -255,7 +255,6 @@ class image_converter:
           self.joint4 = joints[3]
 
         self.joint1Angle = self.joint1
-
         self.joint1Angle = self.joint2
         self.joint1Angle = self.joint3
         self.joint1Angle = self.joint4
@@ -266,6 +265,8 @@ class image_converter:
           self.joint2 = newAngles[1]
           self.joint3 = newAngles[2]
           self.joint4 = newAngles[3]
+
+
 
         self.previousJoint1 = self.joint1
         self.previousJoint2 = self.joint2
@@ -283,11 +284,12 @@ class image_converter:
           print("Vision: " + str(RedInBaseFrame[0]) + " , " + str(RedInBaseFrame[1]) + " , " + str(RedInBaseFrame[2]))
 
         # put this in 'callback' to continually update joint angles
-        newAngles = self.closed_control(targetInBaseFrame)
-        self.joint1 = newAngles[0]
-        self.joint2 = newAngles[1]
-        self.joint3 = newAngles[2]
-        self.joint4 = newAngles[3]
+        if(self.questionWanted == 3):
+            newAngles = self.closed_control(targetInBaseFrame)
+            self.joint1 = newAngles[0]
+            self.joint2 = newAngles[1]
+            self.joint3 = newAngles[2]
+            self.joint4 = newAngles[3]
 
 
         cv2.waitKey(1)
@@ -596,10 +598,10 @@ class image_converter:
 
     def jacobianCalc(self, jVal):
         # 3.2 stuff
-        jVal0 = jVal[0]
-        jVal1 = jVal[1]
-        jVal2 = jVal[2]
-        jVal3 = jVal[3]
+        jVal0 = jVal
+        jVal1 = jVal
+        jVal2 = jVal
+        jVal3 = jVal
 
         pi = np.pi
         hPi = pi / 2.0
@@ -612,14 +614,14 @@ class image_converter:
         s3 = np.sin(jVal2)
         s4 = np.sin(jVal3)
 
-        jacobian = np.array([[-3.5 * c2 * c3 * s1 + 3 * s2 * s4 * s1 + 3 * c4 * (-1 * c2 * c3 * s1 + s3 * c1) + 3.5 * s3 * c1, -3.5 * c1 * c3 * s2 - 3 * c1 * s4 * c2 - 3 * c4 * c1 * c3 * s2, 3.5 * s1 * c3 + 3 * c4 * (s1 * c3 - c1 * c2 * s3) - 3.5 * c1 * c2 * s3, -3 * c1 * s2 * c4 - 3 * s4 * (s1 * s3 + c1 * c2 * c3)],
+        jacobian = np.array([[-3.5 * c2 * c3 * s1 + 3 * s2 * s4 * s1 + 3 * c4 * (-1 * c2 * c3 * c1 + s3 * c1) + 3.5 * s3 * c1, -3.5 * c1 * c3 * s2 - 3 * c1 * s4 * c2 - 3 * c4 * c1 * c3 * s2, 3.5 * s1 * c3 + 3 * c4 * (s1 * c3 - c1 * c2 * s3) - 3.5 * c1 * c2 * s3, -3 * c1 * s2 * c4 - 3 * s4 * (s1 * s3 + c1 * c2 * c3)],
                              [3.5 * c2 * c3 * c1 - 3 * s2 * s4 * c1 + 3 * c4 * (s3 * s1 + c2 * c3 * c1) + 3.5 * s3 * s1, -3.5 * s1 * c3 * s2 - 3 * s1 * s4 * c2 - 3 * c4 * s1 * c3 * s2, 3 * c4 * (-1 * s1 * c2 * s3 - c1 * c3)- 3.5 * s1 * c2 * s3 - 3.5 * c1 * c3,  -3 * s1 * s2 * c4 - 3 * s4 * (s1 * c2 * c3 - c1 * s3)],
                              [np.array(0), 3 * c3 * c4 * c2 + 3.5 * c3 * c2- 3 * s4 * s2, -3 * s2 * c4 * s3- 3.5 * s2 * s3, 3 * c2 * c4 - 3 * s2 * c3 * s4]])
         return jacobian
 
     def psuedoJacobianCalc(self, jacobian):
         jacobianTrans = np.transpose(jacobian)
-        psuedoJacobian = np.dot(jacobianTrans, np.linalg.inv(np.dot(jacobian, jacobianTrans)))
+        psuedoJacobian = np.dot(jacobianTrans, np.linalg.pinv(np.dot(jacobian, jacobianTrans)))
         return psuedoJacobian
 
     def cos(self, i):
