@@ -16,6 +16,13 @@ class image_converter:
 
     # Defines publisher and subscriber
     def __init__(self):
+        # if self.questionWanted = 2, image.py returns answers for 2.1 & 2.2
+        # if self.questionWanted = 3.1, image.py returns answers for 3.1
+        # if self.questionWanted = 3.2, image.py returns answers for 3.2
+        # if self.questionWanted = 4, image.py returns answers for 4
+        # Note you'll need to restart ROS each time due to some angles not changing between questions.
+        self.questionWanted = 2;
+
         # initialize the node named image_processing
         rospy.init_node('image_processing', anonymous=True)
         # initialize a publisher to send images from camera1 to a topic named image_topic1
@@ -24,6 +31,7 @@ class image_converter:
         self.image_sub2 = rospy.Subscriber("/camera2/robot/image_raw", Image, self.callback2)
         self.image_sub1 = rospy.Subscriber("/camera1/robot/image_raw", Image, self.callback1)
 
+        self.robot_joint1_pub = rospy.Publisher("/robot/joint1_position_controller/command", Float64, queue_size=10)
         self.robot_joint2_pub = rospy.Publisher("/robot/joint2_position_controller/command", Float64, queue_size=10)
         self.robot_joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
         self.robot_joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
@@ -32,6 +40,7 @@ class image_converter:
         self.robot_joint3Vision_pub = rospy.Publisher("/robot/joints3_estimation", Float64, queue_size=10)
         self.robot_joint4Vision_pub = rospy.Publisher("/robot/joints4_estimation", Float64, queue_size=10)
 
+        self.robot_prevJoint1Val_pub = rospy.Publisher("/robot/Joint1Val", Float64, queue_size=10)
         self.robot_prevJoint2Val_pub = rospy.Publisher("/robot/Joint2Val", Float64, queue_size=10)
         self.robot_prevJoint3Val_pub = rospy.Publisher("/robot/Joint3Val", Float64, queue_size=10)
         self.robot_prevJoint4Val_pub = rospy.Publisher("/robot/Joint4Val", Float64, queue_size=10)
@@ -54,14 +63,22 @@ class image_converter:
         self.sphereClosest = np.array([[0.1, 0.1], [0.1, 0.1]])
         self.cubeClosest = np.array([[0.1, 0.1], [0.1, 0.1]])
 
+        self.joint1 = Float64()
         self.joint2 = Float64()
         self.joint3 = Float64()
         self.joint4 = Float64()
+
+        self.joint1Angle = 0.0
+        self.joint2Angle = 0.0
+        self.joint3Angle = 0.0
+        self.joint4Angle = 0.0
+
 
         self.calcJoint2 = Float64()
         self.calcJoint3 = Float64()
         self.calcJoint4 = Float64()
 
+        self.previousJoint1 = Float64()
         self.previousJoint2 = Float64()
         self.previousJoint3 = Float64()
         self.previousJoint4 = Float64()
@@ -201,6 +218,7 @@ class image_converter:
         self.setClosestPoints(points2D, visibility)
 
         # Get joint values that we're working on
+        self.previousJoint1 = self.joint1
         self.previousJoint2 = self.joint2
         self.previousJoint3 = self.joint3
         self.previousJoint4 = self.joint4
@@ -209,8 +227,7 @@ class image_converter:
         self.targetX = 0.9 * targetInBaseFrame[0]
         self.targetY = 0.9 * targetInBaseFrame[1]
         self.targetZ = targetInBaseFrame[2]
-        print("Target: " + str(targetInBaseFrame[0]) + " , " + str(targetInBaseFrame[1]) + " , " + str(
-            targetInBaseFrame[2]))
+
 
         RedInBaseFrame = red3D - yellow3D
         RedInBaseFrame = self.clampMagnitude(RedInBaseFrame, 9)
@@ -219,21 +236,50 @@ class image_converter:
         self.redZ = RedInBaseFrame[2]
 
         # Update joint angles
-        joints = self.jointMovement()
-        self.joint2 = joints[0]
-        self.joint3 = joints[1]
-        self.joint4 = joints[2]
+        if self.questionWanted == 2:
+          joints = self.jointMovement()
+          self.joint2 = joints[0]
+          self.joint3 = joints[1]
+          self.joint4 = joints[2]
 
-        print("Joints:   J2:" + str(np.round(10000 * joints[0]) / 10000) + ",  J3:" + str(
-            np.round(10000 * joints[1]) / 10000) + ",  J4:" + str(np.round(10000 * joints[2]) / 10000))
+        self.joint1Angle = self.joint1
+        self.joint1Angle = self.joint2
+        self.joint1Angle = self.joint3
+        self.joint1Angle = self.joint4
+        """
+        newAngles = self.closed_control(targetInBaseFrame)
+        print("AAAAHHHHH")
+        print(newAngles)
+        self.joint1 = newAngles[0]
+        self.joint2 = newAngles[1]
+        self.joint3 = newAngles[2]
+        self.joint4 = newAngles[3]
+        """
+
+
+        self.previousJoint1 = self.joint1
+        self.previousJoint2 = self.joint2
+        self.previousJoint3 = self.joint3
+        self.previousJoint4 = self.joint4
+
+        #("Joints:   J2:" + str(np.round(10000 * joints[0]) / 10000) + ",  J3:" + str(
+            #np.round(10000 * joints[1]) / 10000) + ",  J4:" + str(np.round(10000 * joints[2]) / 10000))
 
         im1 = cv2.imshow('yzImage', self.cv_image1)
         im2 = cv2.imshow('xz,Image', self.cv_image2)
-
+        if self.questionWanted == 4:
+          self.joint1 = -1 * np.pi/180
+          self.joint2 = -90 * np.pi/180
+          self.joint3 = 1 * np.pi/180
+          self.joint4 = -15 * np.pi/180
+          print("FK calc: " + str(self.calc_end_effector_pos([self.joint1, self.joint2, self.joint3, self.joint4])))
+          print("Vision: " + str(RedInBaseFrame[0]) + " , " + str(RedInBaseFrame[1]) + " , " + str(RedInBaseFrame[2]))
         cv2.waitKey(1)
         # Publish the results
         try:
             self.image_pub1.publish(self.bridge.cv2_to_imgmsg(self.cv_image1, "bgr8"))
+
+            self.robot_joint1_pub.publish(self.joint1)
             self.robot_joint2_pub.publish(self.joint2)
             self.robot_joint3_pub.publish(self.joint3)
             self.robot_joint4_pub.publish(self.joint4)
@@ -242,6 +288,7 @@ class image_converter:
             self.robot_joint3Vision_pub.publish(self.calcJoint3)
             self.robot_joint4Vision_pub.publish(self.calcJoint4)
 
+            self.robot_prevJoint1Val_pub.publish(self.previousJoint1)
             self.robot_prevJoint2Val_pub.publish(self.previousJoint2)
             self.robot_prevJoint3Val_pub.publish(self.previousJoint3)
             self.robot_prevJoint4Val_pub.publish(self.previousJoint4)
@@ -467,10 +514,10 @@ class image_converter:
         MinDist = 1000000;
         for point in points:
             Dist = self.sqrdist(point[index], ownPoint)
-
-            if Dist < MinDist and Dist != 0:
+            if Dist < MinDist and Dist > 1:
                 closestPoint = point[index]
                 MinDist = Dist
+        print(str(point) + " --> " + str(closestPoint))
         return closestPoint
 
     def setClosestPoints(self, points, visibility):
@@ -488,7 +535,7 @@ class image_converter:
 
         if (visibility[3][0]): self.redClosest[0] = self.getClosestPoint(points, points[3][0], 0)
         if (visibility[3][1]): self.redClosest[1] = self.getClosestPoint(points, points[3][1], 1)
-        print("aw beans: " + str(self.redClosest[1]))
+
         if (visibility[4][0]): self.sphereClosest[0] = self.getClosestPoint(points, points[4][0], 0)
         if (visibility[4][1]): self.sphereClosest[1] = self.getClosestPoint(points, points[4][1], 1)
 
@@ -500,93 +547,68 @@ class image_converter:
 
     def jacobianCalc(self, jVal):
         # 3.2 stuff
+        jVal0 = jVal
+        jVal1 = jVal
+        jVal2 = jVal
+        jVal3 = jVal
+
         pi = np.pi
         hPi = pi / 2.0
-        c1 = np.cos(jVal[0] + hPi)
-        c2 = np.cos(jVal[1] + hPi)
-        c3 = np.cos(jVal[2])
-        c4 = np.cos(jVal[3])
-        s1 = np.sin(jVal[0] + hPi)
-        s2 = np.sin(jVal[1] + hPi)
-        s3 = np.sin(jVal[2])
-        s4 = np.sin(jVal[3])
+        c1 = np.cos(jVal0 + hPi)
+        c2 = np.cos(jVal1 + hPi)
+        c3 = np.cos(jVal2)
+        c4 = np.cos(jVal3)
+        s1 = np.sin(jVal0 + hPi)
+        s2 = np.sin(jVal1 + hPi)
+        s3 = np.sin(jVal2)
+        s4 = np.sin(jVal3)
 
-        jacobian = np.array([[-3.5 * c2 * c3 * s1
-                              + 3 * s2 * s4 * s1
-                              + 3 * c4 * (-1 * c2 * c3 * c1 + s3 * c1)
-                              + 3.5 * s3 * c1,
-                              -3.5 * c1 * c3 * s2
-                              - 3 * c1 * s4 * c2
-                              - 3 * c4 * c1 * c3 * s2,
-                              3.5 * s1 * c3
-                              + 3 * c4 * (s1 * c3 - c1 * c2 * s3)
-                              - 3.5 * c1 * c2 * s3,
-                              -3 * c1 * s2 * c4
-                              - 3 * s4 * (s1 * s3 + c1 * c2 * c3)],
-                             [3.5 * c2 * c3 * c1
-                              - 3 * s2 * s4 * c1
-                              + 3 * c4 * (s3 * s1 + c2 * c3 * c1)
-                              + 3.5 * s3 * s1,
-                              -3.5 * s1 * c3 * s2
-                              - 3 * s1 * s4 * c2
-                              - 3 * c4 * s1 * c3 * s2,
-                              3 * c4 * (-1 * s1 * c2 * s3 - c1 * c3)
-                              - 3.5 * s1 * c2 * s3
-                              - 3.5 * c1 * c3,
-                              -3 * s1 * s2 * c4
-                              - 3 * s4 * (s1 * c2 * c3 - c1 * s3)],
-                             [0,
-                              3 * c3 * c4 * c2
-                              + 3.5 * c3 * c2
-                              - 3 * s4 * s2,
-                              -3 * s2 * c4 * s3
-                              - 3.5 * s2 * s3,
-                              3 * c2 * c4
-                              - 3 * s2 * c3 * s4]])
+        jacobian = np.array([[-3.5 * c2 * c3 * s1 + 3 * s2 * s4 * s1 + 3 * c4 * (-1 * c2 * c3 * c1 + s3 * c1) + 3.5 * s3 * c1, -3.5 * c1 * c3 * s2 - 3 * c1 * s4 * c2 - 3 * c4 * c1 * c3 * s2, 3.5 * s1 * c3 + 3 * c4 * (s1 * c3 - c1 * c2 * s3) - 3.5 * c1 * c2 * s3, -3 * c1 * s2 * c4 - 3 * s4 * (s1 * s3 + c1 * c2 * c3)],
+                             [3.5 * c2 * c3 * c1 - 3 * s2 * s4 * c1 + 3 * c4 * (s3 * s1 + c2 * c3 * c1) + 3.5 * s3 * s1, -3.5 * s1 * c3 * s2 - 3 * s1 * s4 * c2 - 3 * c4 * s1 * c3 * s2, 3 * c4 * (-1 * s1 * c2 * s3 - c1 * c3)- 3.5 * s1 * c2 * s3 - 3.5 * c1 * c3,  -3 * s1 * s2 * c4 - 3 * s4 * (s1 * c2 * c3 - c1 * s3)],
+                             [np.array(0), 3 * c3 * c4 * c2 + 3.5 * c3 * c2- 3 * s4 * s2, -3 * s2 * c4 * s3- 3.5 * s2 * s3, 3 * c2 * c4 - 3 * s2 * c3 * s4]])
         return jacobian
 
     def psuedoJacobianCalc(self, jacobian):
         jacobianTrans = np.transpose(jacobian)
-        psuedoJacobian = np.dot(jacobianTrans, np.linalg.inverse(np.dot(jacobian, jacobianTrans)))
+        psuedoJacobian = np.dot(jacobianTrans, np.linalg.pinv(np.dot(jacobian, jacobianTrans)))
         return psuedoJacobian
 
     def cos(self, i):
-        return round(np.cos(i))
+        return np.cos(i)
 
     def sin(self, i):
-        return round(np.sin(i))
-
-    def round(self, val):
-        return np.round(val * 10000) / 10000
+        return np.sin(i)
 
     def getAMatrix(self, a, alpha, d, theta):
-        homoM = np.array(
-            [[self.cos(theta), -self.sin(theta) * self.cos(alpha), self.sin(theta) * sin(alpha), a * self.cos(theta)],
-             [self.sin(theta), self.cos(theta) * self.cos(alpha), -self.cos(theta) * self.sin(alpha),
-              a * self.sin(theta)],
-             [0, self.sin(alpha), self.cos(alpha), d],
-             [0, 0, 0, 1]])
-        return homoM
+        test = np.matrix([[self.cos(theta), -self.sin(theta)*self.cos(alpha), self.sin(theta)*self.sin(alpha), a*self.cos(theta)], [self.sin(theta), self.cos(theta)*self.cos(alpha), -self.cos(theta)*self.sin(alpha), a*self.sin(theta)], [0, self.sin(alpha), self.cos(alpha), d], [0,0,0,1]])
+        return test
 
     def calc_end_effector_pos(self, joints):
         # 3.2 stuff
         pi = np.pi
-        hPi = pi / 2.0
-        A10 = self.getAMatrix(0, hPi, 2.5, (joints[0] + hPi))
-        A21 = self.getAMatrix(0, hPi, 0, (joints[1] + hPi))
-        A32 = self.getAMatrix(3.5, -hPi, 0, joints[2])
-        A43 = self.getAMatrix(3, 0, 0, joints[3])
+
+        hPi = pi / 2
+
+        j1 = joints[0]
+        j2 = joints[1]
+        j3 = joints[2]
+        j4 = joints[3]
+
+        A10 = self.getAMatrix(0, hPi, 2.5, (j1 + hPi))
+        A21 = self.getAMatrix(0, hPi, 0, (j2 + hPi))
+        A32 = self.getAMatrix(3.5, -hPi, 0, j3)
+        A43 = self.getAMatrix(3, 0, 0, j4)
 
         I = np.dot(A10, A21)
         J = np.dot(A32, A43)
         K = np.dot(I, J)
-        effector_pos = np.array([K[0][3], K[1][3], K[2][3]])
+        effector_pos = np.array([K.item(0,3), K.item(1,3), K.item(2,3)])
         return effector_pos
 
     def closed_control(self, targetLocation):
         # P and D gain
-        K_p = np.array([[10, 0], [0, 10]])
-        K_d = np.array([[0.1, 0], [0, 0.1]])
+        K_p = np.array([[10, 0, 0], [0, 10, 0], [0, 0, 10]])
+        K_d = np.array([[0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1]])
 
         # estimate time step
         cur_time = np.array([rospy.get_time()])
@@ -595,7 +617,8 @@ class image_converter:
 
         # joint angles
         jointAngles = self.jointMovement()
-        q = np.array([0, jointAngles[0], jointAngles[1], jointAngles[2]])
+        jointAngles = [self.previousJoint2, self.previousJoint3]
+        q = np.array([self.joint1Angle, self.joint2Angle, self.joint3Angle, self.joint4Angle])
 
         # end effector position and sphere position
         pos = self.calc_end_effector_pos(q)
@@ -609,8 +632,8 @@ class image_converter:
         J_inv = self.psuedoJacobianCalc(self.jacobianCalc(q))
 
         # calculate angualr velocity of joints
-        dq_d = np.dot(J_inv, (np.dot(K_d, self.error_d.transpose())
-                              + np.dot(K_p, self.error.transpose())))
+
+        dq_d = np.dot(J_inv, (np.dot(K_d, self.error_d.transpose()) + np.dot(K_p, self.error.transpose())))
 
         # integrate to find control inputs
         q_d = q + (dt * dq_d)
