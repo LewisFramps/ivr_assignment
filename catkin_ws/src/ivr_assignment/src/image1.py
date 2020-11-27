@@ -75,6 +75,11 @@ class image_converter:
     self.redX = Float64()
     self.redY = Float64()
     self.redZ = Float64()
+    
+    #3.2 stuff
+    self.time_previous_step = np.array([rospy.get_time()], dtype='float64')
+    self.error = np.array([0.0,0.0,0.0], dtype='float64')
+    self.error_d = np.array([0.0,0.0,0.0], dtype='float64')
 
     # initialize the bridge between openCV and ROS
     self.bridge = CvBridge()
@@ -485,7 +490,131 @@ class image_converter:
 
   def sqrdist(self, p1, p2):
     return np.linalg.norm(p1 - p2)
+  
+  # 3.2 stuff
+  pi = np.pi
+  hPi = pi/2.0
 
+  def jacobianCalc(self,jVal):
+
+	c1 = np.cos(jVal[0] + hPi)
+	c2 = np.cos(jVal[1] + hPi)
+  	c3 = np.cos(jVal[2])
+  	c4 = np.cos(jVal[3])
+  	s1 = np.sin(jVal[0] + hPi)
+	s2 = np.sin(jVal[1] + hPi)
+  	s3 = np.sin(jVal[2])
+  	s4 = np.sin(jVal[3])
+	
+  	jacobian = np.array([[-3.5 * c2 * c3 * s1 
+	                      + 3 * s2 * s4 * s1
+			      + 3 * c4 * (-1 * c2 * c3 * c1 + s3 * c1)
+			      + 3.5 * s3 * c1,
+			      -3.5 * c1 * c3 * s2
+			      -3 * c1 * s4 * c2
+			      -3 * c4 * c1 * c3 * s2,
+			      3.5 * s1 c3
+			      + 3 * c4 * (s1 * c3 - c1 * c2 * s3)
+			      -3.5 * c1 * c2 * s3,
+			      -3 * c1 * s2 * c4
+			      -3 * s4 * (s1 * s3 + c1 * c2 * c3)],
+			     [3.5 * c2 * c3 * c1
+			      - 3 * s2 * s4 * c1
+			      + 3 * c4 * (s3 * s1 + c2 * c3 * c1)
+			      + 3.5 * s3 * s1,
+			      -3.5 * s1 * c3 * s2
+			      -3 * s1 * s4 * c2
+			      -3 * c4 * s1 * c3 * s2,
+			      3 * c4 * (-1 * s1 * c2 * s3 - c1 * c3)
+			      -3.5 * s1 * c2 * s3
+			      -3.5 * c1 * c3,
+			      -3 * s1 * s2 * c4
+			      -3 * s4 * (s1 * c2 * c3 - c1 * s3)],
+			     [0,
+			      3 * c3 * c4 * c2
+		    	     +3.5 * c3 * c2
+			     -3 * s4 * s2,
+			     -3 * s2 * c4 * s3
+			     -3.5 * s2 * s3,
+			     3 * c2 * c4
+			     -3 * s2 * c3 * s4]])
+	  return jacobian
+	
+
+  def psuedoJacobianCalc(self,jacobian):
+	  jacobianTrans = np.transpose(jacobian)
+  	psuedoJacobian = np.dot(jacobianTrans,np.linalg.inverse(np.dot(jacobian,jacobianTrans)))
+  	return psuedoJacobian
+	
+  def cos(i):
+      return round(np.cos(i))
+
+  def sin(i):
+      return round(np.sin(i))
+
+  def round(val):
+      return np.round(val * 10000) / 10000
+	
+  def getAMatrix(a, alpha, d, theta):
+      homoM = np.array([[cos(theta), -sin(theta)*cos(alpha), sin(theta)*sin(alpha), a*cos(theta)],
+                       [sin(theta), cos(theta)*cos(alpha), -cos(theta)*sin(alpha), a*sin(theta)],
+		  			 [0, sin(alpha), cos(alpha), d],
+		  			 [0,0,0,1]])
+      return homoM
+
+  def calc_end_effector_pos(self,joints):
+      A10 = getAMatrix(0,   hPi,  2.5, (joints[0]+hPi))
+      A21 = getAMatrix(0,   hPi,  0, (joints[1]+hPi))
+      A32 = getAMatrix(3.5, -hPi, 0, joints[2])
+      A43 = getAMatrix(3,   0,    0, joints[3])
+	
+      I = np.dot(A10,A21)
+      J = np.dot(A32,A43)
+      K = np.dot(I,J)
+      effector_pos = np.array([K[0][3],K[1][3],K[2][3]])
+      return effector_pos
+	
+  def closed_control(self,targetLocation):
+	  # P and D gain
+	  K_p = np.array([[10,0],[0,10])
+	  K_d = np.array([[0.1,0],[0,0.1])
+	
+	  # estimate time step
+	  cur_time = np.array([rospy.get_time()])
+	  dt = cur_time - self.time_previous_step
+	  self.time_previous_step = cur_time
+	
+	  # joint angles
+	  jointAngles = self.jointMovement()
+	  q = np.array([0,jointAngles[0],jointAngles[1],jointAngles[2]])
+	
+	  # end effector position and sphere position
+	  pos = self.calc_end_effector_pos(q)
+	  pos_d = sphereLocation
+	
+	  # estimate error
+	  self.error_d = ((pos_d - pos) - self.error)/dt
+	  self.error = pos_d - pos
+	
+	  # calc psuedo inverse of jacobian
+	  J_inv = self.psuedoJacobianCalc(self.jacobianCalc(q))
+	
+	  # calculate angualr velocity of joints
+	  dq_d = np.dot(J_inv, (np.dot(K_d, self.error_d.transpose())
+	       + np.dot(K_p, self.error.transpose())))
+	
+	  # integrate to find control inputs
+	  q_d = q + (dt * dq_d)
+	  return q_d
+                    
+    # put this in 'callback' to continually update joint angles
+    # newAngles = self.closed_control(targetInBaseFrame)
+    # self.joint1 = newAngles[0]
+    # self.joint2 = newAngles[1]
+    # self.joint3 = newAngles[2]
+    # self.joint4 = newAngles[3]
+                    
+                    
 # call the class
 def main(args):
   ic = image_converter()
