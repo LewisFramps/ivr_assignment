@@ -68,10 +68,10 @@ class image_converter:
         self.joint3 = Float64()
         self.joint4 = Float64()
 
-        self.joint1Angle = 0.0
-        self.joint2Angle = 0.0
-        self.joint3Angle = 0.0
-        self.joint4Angle = 0.0
+        self.joint1 = 0.0
+        self.joint2 = 0.0
+        self.joint3 = 0.0
+        self.joint4 = 0.0
 
 
         self.calcJoint2 = Float64()
@@ -243,9 +243,9 @@ class image_converter:
           self.joint4 = joints[2]
 
         self.joint1Angle = self.joint1
-        self.joint1Angle = self.joint2
-        self.joint1Angle = self.joint3
-        self.joint1Angle = self.joint4
+        self.joint2Angle = self.joint2
+        self.joint3Angle = self.joint3
+        self.joint4Angle = self.joint4
         """
         newAngles = self.closed_control(targetInBaseFrame)
         print("AAAAHHHHH")
@@ -547,10 +547,10 @@ class image_converter:
 
     def jacobianCalc(self, jVal):
         # 3.2 stuff
-        jVal0 = jVal
-        jVal1 = jVal
-        jVal2 = jVal
-        jVal3 = jVal
+        jVal0 = jVal[0]
+        jVal1 = jVal[1]
+        jVal2 = jVal[2]
+        jVal3 = jVal[3]
 
         pi = np.pi
         hPi = pi / 2.0
@@ -570,7 +570,7 @@ class image_converter:
 
     def psuedoJacobianCalc(self, jacobian):
         jacobianTrans = np.transpose(jacobian)
-        psuedoJacobian = np.dot(jacobianTrans, np.linalg.pinv(np.dot(jacobian, jacobianTrans)))
+        psuedoJacobian = np.dot(jacobianTrans, np.linalg.inv(np.dot(jacobian, jacobianTrans)))
         return psuedoJacobian
 
     def cos(self, i):
