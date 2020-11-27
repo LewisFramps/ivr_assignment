@@ -65,7 +65,7 @@ class image_converter:
     self.previousJoint3=Float64()
     self.previousJoint4=Float64()
 
-    self.pixToMet = None
+    self.pixToMet = 0.05
     self.looped = False
 
     self.targetX=Float64()
@@ -130,10 +130,11 @@ class image_converter:
     # get pixel to meter ratio only once, do this before any joints have moved.
     # This would break occasionally, it would always return 0.05 +- 0.01
     # So i've just hardcoded it, if you want to make sure it works remove the '&& False Is True'
+    self.pixToMet = 0.05
     if not self.looped and False == True:
       self.pixToMet = self.pixel2Meter((yellowPixCentres[0]+yellowPixCentres[1])/2, (bluePixCentres[0]+bluePixCentres[1])/2)
       self.looped = True
-    self.pixToMet = 0.05
+
     # Get 2D object locations in meters on the YZ and the XZ
     red2D  = np.array([self.pixToMet * redPixCentres[0], self.pixToMet * redPixCentres[1]])
     blue2D = np.array([self.pixToMet * bluePixCentres[0], self.pixToMet * bluePixCentres[1]])
