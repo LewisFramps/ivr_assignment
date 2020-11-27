@@ -27,13 +27,13 @@ class image_converter:
     self.robot_joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
     self.robot_joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
 
-    self.robot_joint2Vision_pub = rospy.Publisher("/robot/joints2Vision", Float64, queue_size=10)
-    self.robot_joint3Vision_pub = rospy.Publisher("/robot/joints3Vision", Float64, queue_size=10)
-    self.robot_joint4Vision_pub = rospy.Publisher("/robot/joints4Vision", Float64, queue_size=10)
+    self.robot_joint2Vision_pub = rospy.Publisher("/robot/joints2_estimation", Float64, queue_size=10)
+    self.robot_joint3Vision_pub = rospy.Publisher("/robot/joints3_estimation", Float64, queue_size=10)
+    self.robot_joint4Vision_pub = rospy.Publisher("/robot/joints4_estimation", Float64, queue_size=10)
 
-    self.robot_prevJoint2Val_pub = rospy.Publisher("/robot/previousJoint2Val", Float64, queue_size=10)
-    self.robot_prevJoint3Val_pub = rospy.Publisher("/robot/previousJoint3Val", Float64, queue_size=10)
-    self.robot_prevJoint4Val_pub = rospy.Publisher("/robot/previousJoint4Val", Float64, queue_size=10)
+    self.robot_prevJoint2Val_pub = rospy.Publisher("/robot/Joint2Val", Float64, queue_size=10)
+    self.robot_prevJoint3Val_pub = rospy.Publisher("/robot/Joint3Val", Float64, queue_size=10)
+    self.robot_prevJoint4Val_pub = rospy.Publisher("/robot/Joint4Val", Float64, queue_size=10)
 
     self.robot_targetX_pup = rospy.Publisher("/robot/targetX", Float64, queue_size=10)
     self.robot_targetY_pup = rospy.Publisher("/robot/targetY", Float64, queue_size=10)
@@ -82,6 +82,11 @@ class image_converter:
     self.cv_image2 = None
     self.initial_time = rospy.get_time()
 
+    self.priorJ1Vector = None
+    self.priorJ2Vector = None
+    self.priorJ3Vector = None
+    self.priorJ4Vector = None
+
   # Recieve data from camera 1, process it, and publish
   def callback1(self,data):
     # Recieve the image
@@ -123,10 +128,12 @@ class image_converter:
     pixelPoints = [yellowPixCentres, bluePixCentres, greenPixCentres, redPixCentres, targetPixCentres, cubePixCentres]
 
     # get pixel to meter ratio only once, do this before any joints have moved.
-    if not self.looped:
+    # This would break occasionally, it would always return 0.05 +- 0.01
+    # So i've just hardcoded it, if you want to make sure it works remove the '&& False Is True'
+    if not self.looped and False == True:
       self.pixToMet = self.pixel2Meter((yellowPixCentres[0]+yellowPixCentres[1])/2, (bluePixCentres[0]+bluePixCentres[1])/2)
       self.looped = True
-
+    self.pixToMet = 0.05
     # Get 2D object locations in meters on the YZ and the XZ
     red2D  = np.array([self.pixToMet * redPixCentres[0], self.pixToMet * redPixCentres[1]])
     blue2D = np.array([self.pixToMet * bluePixCentres[0], self.pixToMet * bluePixCentres[1]])
@@ -145,6 +152,11 @@ class image_converter:
     green3D = self.get3Dim(green2D)
     target3D = self.get3Dim(target2D)
     cube3D = self.get3Dim(cube2D)
+
+    self.deltaJ1 = 1
+    self.deltaJ2 = 1
+    self.deltaJ3 = 1
+    self.deltaJ4 = 1
 
     # Debugging images, delete this later!
     XY = np.ones((800,800,3), np.uint8)
@@ -407,19 +419,24 @@ class image_converter:
 
     j1 = np.arccos(yellowToBlue[0] / (np.sqrt(yellowToBlue[0] **2 + yellowToBlue[1]**2))) - 1
     j1 = 0
+    # Get joint 3s angle by checking its angle in the YZ plane
 
-    # Get joint 2s angle by checking its angle in the YZ plane
-    j2 = (np.pi/2 + - np.arccos(blueToGreen[1] / (np.sqrt(blueToGreen[1]**2 + blueToGreen[2]**2))) - j1)
+    j2 = -np.arccos(blueToGreen[1] / (np.sqrt(blueToGreen[1]**2 + blueToGreen[2]**2))) - j1 + np.pi/2
 
     # Get joint 3s angle by checking its angle in the XZ plane
     # we also adjust slightly to improve accuracy
-    j3 = 0.85 * (-np.pi/2 + np.arccos(blueToGreen[0] / (np.sqrt(blueToGreen[0]**2 + blueToGreen[2]**2))) - j1)
+    j3 = 0.85 * (np.arccos(blueToGreen[0] / (np.sqrt(blueToGreen[0]**2 + blueToGreen[2]**2))) - j1 - np.pi/2)
 
     # Get joint 4s angle by checking in the YZ plane, also subtract j2 as the rotation is also applied to j4
-    j4 = -(- np.pi/2 + np.arccos(greenToRed[1] / (np.sqrt(greenToRed[1]**2 + greenToRed[2]**2)))) - j2
+    j4 = -np.arccos(greenToRed[1] / (np.sqrt(greenToRed[1]**2 + greenToRed[2]**2))) + np.pi/2 - j2
+    return [self.limitVal(j2, -np.pi/2, np.pi/2), self.limitVal(j3, -np.pi/2, np.pi/2), self.limitVal(j4, -np.pi/3, np.pi/3)]
 
-    #print("calc:     J1:" + str(np.round(1000 * j1) /1000) +",  J2:" + str(np.round(1000 * j2) /1000) + ",  J3:" + str(np.round(1000 * j3) /1000) + ",  J4:" + str(np.round(1000 * j4) /1000))
-    return [j2, j3, j4]
+  def limitVal(self, val, min, max):
+    if val > max:
+      return max
+    elif val < min:
+      return  min
+    return val
 
   def pixel2Meter(self, circle1, circle2):
     return 2.5 / np.sqrt(np.sum((circle1 - circle2)**2))
