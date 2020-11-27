@@ -78,8 +78,8 @@ class image_converter:
     
     #3.2 stuff
     self.time_previous_step = np.array([rospy.get_time()], dtype='float64')
-	  self.error = np.array([0.0,0.0,0.0], dtype='float64')
-	  self.error_d = np.array([0.0,0.0,0.0], dtype='float64')
+    self.error = np.array([0.0,0.0,0.0], dtype='float64')
+    self.error_d = np.array([0.0,0.0,0.0], dtype='float64')
 
     # initialize the bridge between openCV and ROS
     self.bridge = CvBridge()
@@ -546,16 +546,16 @@ class image_converter:
       return homoM
 
   def calc_end_effector_pos(self,joints):
-    A10 = getAMatrix(0,   hPi,  2.5, (joints[0]+hPi))
-	  A21 = getAMatrix(0,   hPi,  0, (joints[1]+hPi))
-  	A32 = getAMatrix(3.5, -hPi, 0, joints[2])
-	  A43 = getAMatrix(3,   0,    0, joints[3])
+      A10 = getAMatrix(0,   hPi,  2.5, (joints[0]+hPi))
+      A21 = getAMatrix(0,   hPi,  0, (joints[1]+hPi))
+      A32 = getAMatrix(3.5, -hPi, 0, joints[2])
+      A43 = getAMatrix(3,   0,    0, joints[3])
 	
-  	I = np.dot(A10,A21)
-  	J = np.dot(A32,A43)
-	  K = np.dot(I,J)
-	  effector_pos = np.array([K[0][3],K[1][3],K[2][3]])
-	  return effector_pos
+      I = np.dot(A10,A21)
+      J = np.dot(A32,A43)
+      K = np.dot(I,J)
+      effector_pos = np.array([K[0][3],K[1][3],K[2][3]])
+      return effector_pos
 	
   def closed_control(self,targetLocation):
 	  # P and D gain
