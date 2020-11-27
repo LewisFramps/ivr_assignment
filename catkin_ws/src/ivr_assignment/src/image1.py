@@ -498,52 +498,52 @@ class image_converter:
 
   def jacobianCalc(self,jVal):
 
-	c1 = np.cos(jVal[0] + hPi)
-	c2 = np.cos(jVal[1] + hPi)
-  	c3 = np.cos(jVal[2])
-  	c4 = np.cos(jVal[3])
-  	s1 = np.sin(jVal[0] + hPi)
-	s2 = np.sin(jVal[1] + hPi)
-  	s3 = np.sin(jVal[2])
-  	s4 = np.sin(jVal[3])
+      c1 = np.cos(jVal[0] + hPi)
+      c2 = np.cos(jVal[1] + hPi)
+      c3 = np.cos(jVal[2])
+      c4 = np.cos(jVal[3])
+      s1 = np.sin(jVal[0] + hPi)
+      s2 = np.sin(jVal[1] + hPi)
+      s3 = np.sin(jVal[2])
+      s4 = np.sin(jVal[3])
 	
-  	jacobian = np.array([[-3.5 * c2 * c3 * s1 
-	                      + 3 * s2 * s4 * s1
-			      + 3 * c4 * (-1 * c2 * c3 * c1 + s3 * c1)
-			      + 3.5 * s3 * c1,
-			      -3.5 * c1 * c3 * s2
-			      -3 * c1 * s4 * c2
-			      -3 * c4 * c1 * c3 * s2,
-			      3.5 * s1 c3
-			      + 3 * c4 * (s1 * c3 - c1 * c2 * s3)
-			      -3.5 * c1 * c2 * s3,
-			      -3 * c1 * s2 * c4
-			      -3 * s4 * (s1 * s3 + c1 * c2 * c3)],
-			     [3.5 * c2 * c3 * c1
-			      - 3 * s2 * s4 * c1
-			      + 3 * c4 * (s3 * s1 + c2 * c3 * c1)
-			      + 3.5 * s3 * s1,
-			      -3.5 * s1 * c3 * s2
-			      -3 * s1 * s4 * c2
-			      -3 * c4 * s1 * c3 * s2,
-			      3 * c4 * (-1 * s1 * c2 * s3 - c1 * c3)
-			      -3.5 * s1 * c2 * s3
-			      -3.5 * c1 * c3,
-			      -3 * s1 * s2 * c4
-			      -3 * s4 * (s1 * c2 * c3 - c1 * s3)],
+      jacobian = np.array([[-3.5 * c2 * c3 * s1 
+	                    + 3 * s2 * s4 * s1
+	                    + 3 * c4 * (-1 * c2 * c3 * c1 + s3 * c1)
+			    + 3.5 * s3 * c1,
+			    -3.5 * c1 * c3 * s2
+			    -3 * c1 * s4 * c2
+			    -3 * c4 * c1 * c3 * s2,
+			     3.5 * s1 c3
+			     + 3 * c4 * (s1 * c3 - c1 * c2 * s3)
+			     -3.5 * c1 * c2 * s3,
+			     -3 * c1 * s2 * c4
+			     -3 * s4 * (s1 * s3 + c1 * c2 * c3)],
+			    [3.5 * c2 * c3 * c1
+			     - 3 * s2 * s4 * c1
+			     + 3 * c4 * (s3 * s1 + c2 * c3 * c1)
+			     + 3.5 * s3 * s1,
+			     -3.5 * s1 * c3 * s2
+			     -3 * s1 * s4 * c2
+			     -3 * c4 * s1 * c3 * s2,
+			     3 * c4 * (-1 * s1 * c2 * s3 - c1 * c3)
+			     -3.5 * s1 * c2 * s3
+			     -3.5 * c1 * c3,
+			     -3 * s1 * s2 * c4
+			     -3 * s4 * (s1 * c2 * c3 - c1 * s3)],
 			     [0,
 			      3 * c3 * c4 * c2
 		    	     +3.5 * c3 * c2
 			     -3 * s4 * s2,
 			     -3 * s2 * c4 * s3
 			     -3.5 * s2 * s3,
-			     3 * c2 * c4
+			      3 * c2 * c4
 			     -3 * s2 * c3 * s4]])
-	  return jacobian
+      return jacobian
 	
 
   def psuedoJacobianCalc(self,jacobian):
-	  jacobianTrans = np.transpose(jacobian)
+	jacobianTrans = np.transpose(jacobian)
   	psuedoJacobian = np.dot(jacobianTrans,np.linalg.inverse(np.dot(jacobian,jacobianTrans)))
   	return psuedoJacobian
 	
@@ -577,8 +577,8 @@ class image_converter:
 	
   def closed_control(self,targetLocation):
 	  # P and D gain
-	  K_p = np.array([[10,0],[0,10])
-	  K_d = np.array([[0.1,0],[0,0.1])
+	  K_p = np.array([[10,0],[0,10]])
+	  K_d = np.array([[0.1,0],[0,0.1]])
 	
 	  # estimate time step
 	  cur_time = np.array([rospy.get_time()])
